@@ -82,3 +82,89 @@ const originalAuthBtnHandler=$('authBtn').onclick;
 $('authBtn').onclick=async()=>{if(user){location.hash='progress';await dashboard()}else{openAuth()}};
 if('serviceWorker'in navigator){navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(e=>console.warn('PWA service worker:',e));}
 init();
+// ===============================
+// WASSCEPASSCO PWA INSTALLATION
+// ===============================
+
+let deferredInstallPrompt = null;
+
+const installAppBtn = document.getElementById("installAppBtn");
+
+// Capture Android/Chrome install prompt
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+
+  deferredInstallPrompt = event;
+
+  if (installAppBtn) {
+    installAppBtn.hidden = false;
+  }
+});
+
+// Install button
+if (installAppBtn) {
+  installAppBtn.addEventListener("click", async () => {
+
+    if (!deferredInstallPrompt) {
+      alert(
+        "WASSCEPASSCO is ready to be installed. " +
+        "If the install window does not appear, open Chrome's ⋮ menu and choose 'Install app' or 'Add to Home screen'."
+      );
+      return;
+    }
+
+    deferredInstallPrompt.prompt();
+
+    const result = await deferredInstallPrompt.userChoice;
+
+    console.log("PWA installation result:", result.outcome);
+
+    deferredInstallPrompt = null;
+    installAppBtn.hidden = true;
+  });
+}
+
+// Detect successful installation
+window.addEventListener("appinstalled", () => {
+  console.log("WASSCEPASSCO installed successfully.");
+
+  deferredInstallPrompt = null;
+
+  if (installAppBtn) {
+    installAppBtn.hidden = true;
+  }
+});
+
+// Hide install button when already running as an installed app
+function isInstalledPWA() {
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.navigator.standalone === true
+  );
+}
+
+if (isInstalledPWA() && installAppBtn) {
+  installAppBtn.hidden = true;
+}
+
+// Register service worker
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("./sw.js?v=5", {
+        scope: "./"
+      })
+      .then((registration) => {
+        console.log(
+          "WASSCEPASSCO service worker registered:",
+          registration.scope
+        );
+      })
+      .catch((error) => {
+        console.error(
+          "WASSCEPASSCO service worker registration failed:",
+          error
+        );
+      });
+  });
+}
