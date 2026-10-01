@@ -69,5 +69,16 @@ async function editResource(id){const q=await db.from('resources').select('*').e
 $('search').oninput=render;$('subject').onchange=render;$('type').onchange=render;$('year').onchange=render;$('searchTop').oninput=e=>{$('search').value=e.target.value;location.hash='library';render()};$('authBtn').onclick=()=>user?dashboard():openAuth();$('signupBtn').onclick=()=>{authMode=true;openAuth()};document.querySelectorAll('[data-close]').forEach(x=>x.onclick=()=>$(x.dataset.close).classList.add('hidden'));document.querySelectorAll('[data-test]').forEach(x=>x.onclick=()=>startTest(x.dataset.test));
 $('adminBtn').onclick=async()=>{if(role!=='admin')return;await loadAdmin();$('adminModal').classList.remove('hidden')};
 $('uploadForm').onsubmit=async e=>{e.preventDefault();if(role!=='admin'){toast('Admin access required.');return}const f=$('pdf').files[0];if(!f||f.type!=='application/pdf'){toast('Please choose a PDF.');return}if(f.size>25*1024*1024){toast('PDF must be 25 MB or smaller.');return}$('uploadMsg').textContent='Uploading PDF…';const path=`${Date.now()}-${f.name.replace(/[^a-zA-Z0-9._-]/g,'-')}`;const u=await db.storage.from(C.STORAGE_BUCKET).upload(path,f,{contentType:'application/pdf',upsert:false});if(u.error){$('uploadMsg').textContent=u.error.message;return}const url=db.storage.from(C.STORAGE_BUCKET).getPublicUrl(path).data.publicUrl;const r=await db.from('resources').insert({title:$('rTitle').value.trim(),subject:$('rSubject').value.trim(),year:+$('rYear').value||null,type:$('rType').value,paper:$('rPaper').value.trim(),description:$('rDesc').value.trim(),file_path:path,file_url:url,storage_provider:'supabase',published:$('rPublished').checked,created_by:user.id});if(r.error){await db.storage.from(C.STORAGE_BUCKET).remove([path]);$('uploadMsg').textContent=r.error.message;return}$('uploadForm').reset();$('uploadMsg').textContent='Uploaded and saved to Supabase.';await loadAdmin();await loadResources();};
-if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');
+let deferredInstallPrompt=null;
+function installApp(){
+ if(deferredInstallPrompt){deferredInstallPrompt.prompt();deferredInstallPrompt.userChoice.finally(()=>{deferredInstallPrompt=null;$('installBtn')?.classList.add('hidden')});return;}
+ toast('If Install app is not shown, open Chrome menu (⋮) and choose “Install app” or “Add to Home screen”.');
+}
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstallPrompt=e;$('installBtn')?.classList.remove('hidden');$('installHero')?.classList.remove('hidden')});
+window.addEventListener('appinstalled',()=>{deferredInstallPrompt=null;$('installBtn')?.classList.add('hidden');toast('WASSCEPASSCO installed successfully.');});
+$('installBtn')?.addEventListener('click',installApp);$('installHero')?.addEventListener('click',installApp);
+// Make the Account button actually take the user to the dashboard.
+const originalAuthBtnHandler=$('authBtn').onclick;
+$('authBtn').onclick=async()=>{if(user){location.hash='progress';await dashboard()}else{openAuth()}};
+if('serviceWorker'in navigator){navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(e=>console.warn('PWA service worker:',e));}
 init();
